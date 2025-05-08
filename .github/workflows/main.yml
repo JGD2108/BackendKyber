@@ -31,12 +31,11 @@ jobs:
       - name: Package app for Zip Deploy
         run: |
           cd kyber-vpn-backend
-          zip -r ../app.zip .      # Empaqueta sólo los archivos y carpetas dentro
+          zip -r ../app.zip .
           cd ..
 
-      - name: Debug: list ZIP contents
-        run: |
-          unzip -l app.zip         # Verifica que en la raíz estén requirements.txt, app/, startup.sh, etc.
+      - name: list ZIP contents
+        run: unzip -l app.zip
 
       - name: Deploy to Azure Web App
         id: deploy
@@ -44,7 +43,7 @@ jobs:
         with:
           app-name: kyber-vpn-backend
           publish-profile: ${{ secrets.AZURE_WEBAPP_PUBLISH_PROFILE }}
-          package: app.zip         # ← El ZIP con la estructura correcta
+          package: app.zip
           slot-name: production
 
       - name: Verify deployment URL
