@@ -1,4 +1,4 @@
-name: Build & Zip-Deploy to Azure Web App
+name: Deploy Python to Azure Web App
 
 on:
   push:
@@ -6,11 +6,10 @@ on:
   workflow_dispatch:
 
 jobs:
-  build-and-deploy:
+  deploy:
     runs-on: ubuntu-latest
-
     steps:
-      - name: Checkout repository
+      - name: Checkout
         uses: actions/checkout@v3
 
       - name: Set up Python 3.9
@@ -19,41 +18,22 @@ jobs:
           python-version: '3.9'
           cache: pip
 
-      - name: Install dependencies & run tests
+      - name: Install deps & run tests
         working-directory: kyber-vpn-backend
         run: |
-          python -m pip install --upgrade pip
+          pip install --upgrade pip
           pip install -r requirements.txt
           pip install pytest
-          pytest tests/ --doctest-modules --junitxml=../junit/test-results.xml
+          pytest tests/ --junitxml=../junit/test-results.xml
         continue-on-error: true
 
-      - name: Create app.py wrapper
-        working-directory: kyber-vpn-backend
-        run: |
-          echo 'from app.main import app' > app.py
-          echo '# La app real está en app/main.py' >> app.py
-
-      - name: Package app for Zip Deploy
-        run: |
-          cd kyber-vpn-backend
-          zip -r ../app.zip . \
-            -x "venv/*" \
-            -x "Dockerfile" \
-            -x ".pytest_cache/*"
-          cd ..
-
-      - name: "Debug: list ZIP contents"
-        run: unzip -l app.zip
-
       - name: Deploy to Azure Web App
-        id: deploy
         uses: azure/webapps-deploy@v2
         with:
           app-name: kyber-vpn-backend
           publish-profile: ${{ secrets.AZURE_WEBAPP_PUBLISH_PROFILE }}
-          package: app.zip
+          package: kyber-vpn-backend    # ← just point at the folder
           slot-name: production
 
-      - name: Verify deployment URL
+      - name: Verify URL
         run: echo "✅ Deployed to ${{ steps.deploy.outputs.webapp-url }}"
