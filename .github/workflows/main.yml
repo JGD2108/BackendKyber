@@ -35,16 +35,6 @@ jobs:
           pytest tests/ --junitxml=../junit/test-results.xml
         continue-on-error: true
 
-      - name: Enable SCM build on Linux (SCM_DO_BUILD_DURING_DEPLOYMENT)
-        uses: azure/CLI@v1
-        with:
-          azcliversion: latest
-          inlineScript: |
-            az webapp config appsettings set \
-              --resource-group YOUR_RESOURCE_GROUP \
-              --name kyber-vpn-backend \
-              --settings WEBSITE_WEBDEPLOY_USE_SCM=true
-
       - name: Deploy to Azure Web App
         id: deploy
         uses: azure/webapps-deploy@v2
