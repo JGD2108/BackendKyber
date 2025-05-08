@@ -31,50 +31,43 @@ jobs:
         run: |
           cd kyber-vpn-backend
           
-          # Create Python detection signals for Oryx
-          echo "# Root-level entry point for Azure App Service" > app.py
-          echo "from app.main import app" >> app.py
+          # Create proper Python detection files for Oryx
+          echo "from app.main import app" > app.py
+          echo "# This file is imported by wsgi.py" >> app.py
           
-          # Create runtime.txt for Python version
-          echo "python-3.9" > runtime.txt
+          # Create wsgi.py for better Python app detection
+          echo "from app import app as application" > wsgi.py
           
-          # Create a .deployment file to guide Azure
-          echo -e "[config]\nSCM_DO_BUILD_DURING_DEPLOYMENT=true" > .deployment
+          # Create proper runtime.txt with exact Python version
+          echo "python-3.9.18" > runtime.txt
+
+          # Create an empty __init__.py file at the root
+          touch __init__.py
           
-          # Create web.config for Windows App Service
-          cat > web.config << EOL
-          <?xml version="1.0" encoding="utf-8"?>
-          <configuration>
-            <system.webServer>
-              <handlers>
-                <add name="PythonHandler" path="*" verb="*" modules="httpPlatformHandler" resourceType="Unspecified"/>
-              </handlers>
-              <httpPlatform processPath="%home%\site\wwwroot\antenv\Scripts\python.exe"
-                          arguments="%home%\site\wwwroot\antenv\Scripts\gunicorn.exe app.main:app --bind=0.0.0.0:%HTTP_PLATFORM_PORT% --config gunicorn.conf.py"
-                          stdoutLogEnabled="true"
-                          stdoutLogFile="%home%\LogFiles\stdout"
-                          startupTimeLimit="120">
-                <environmentVariables>
-                  <environmentVariable name="PORT" value="%HTTP_PLATFORM_PORT%" />
-                </environmentVariables>
-              </httpPlatform>
-            </system.webServer>
-          </configuration>
+          # Create a more explicit .deployment file
+          cat > .deployment << EOL
+          [config]
+          SCM_DO_BUILD_DURING_DEPLOYMENT=true
+          POST_DEPLOYMENT_ACTION=source /home/site/wwwroot/antenv/bin/activate && cd /home/site/wwwroot && gunicorn app.main:app --bind=0.0.0.0:8000
           EOL
           
-          # Create Linux startup bash script
+          # Create startup command file for Azure
+          cat > startup.txt << EOL
+          gunicorn app.main:app --bind=0.0.0.0:8000 --timeout 600 --config gunicorn.conf.py
+          EOL
+          
+          # Linux startup bash script with proper paths
           cat > startup.sh << EOL
           #!/bin/bash
           export PYTHONPATH=\$PYTHONPATH:/home/site/wwwroot
           cd /home/site/wwwroot
-          
-          # Use the SCM-created virtual environment
           source /home/site/wwwroot/antenv/bin/activate
-          
-          # Start Gunicorn
           gunicorn app.main:app --bind=0.0.0.0:8000 --timeout 600 --config gunicorn.conf.py
           EOL
           chmod +x startup.sh
+          
+          # Create files to help with Python detection
+          touch requirements.lock
           
           # Create zip file of application (excluding unnecessary files)
           zip -r ../app.zip . -x "venv/*" -x ".pytest_cache/*"
@@ -83,6 +76,17 @@ jobs:
           # List contents to verify
           unzip -l app.zip | head -20
 
+      - name: Configure App Service settings
+        uses: azure/cli@1.0.7
+        with:
+          inlineScript: |
+            az webapp config appsettings set --name kyber-vpn-backend \
+            --resource-group $(az webapp show --name kyber-vpn-backend --query resourceGroup --output tsv) \
+            --settings \
+            WEBSITE_WEBDEPLOY_USE_SCM=false \
+            SCM_DO_BUILD_DURING_DEPLOYMENT=true \
+            PYTHON_ENABLE_DYNAMIC_INSTALL=1
+
       - name: Deploy to Azure Web App
         id: deploy
         uses: azure/webapps-deploy@v2
@@ -90,6 +94,7 @@ jobs:
           app-name: kyber-vpn-backend
           publish-profile: ${{ secrets.AZURE_WEBAPP_PUBLISH_PROFILE }}
           package: app.zip
+          startup-command: "gunicorn app.main:app --bind=0.0.0.0:8000 --timeout 600"
           slot-name: production
 
       - name: Verify URL
