@@ -27,12 +27,23 @@ jobs:
           pytest tests/ --junitxml=../junit/test-results.xml
         continue-on-error: true
 
+      - name: Package app for Zip Deploy
+        run: |
+          cd kyber-vpn-backend
+          # Create a zip file for deployment
+          zip -r ../app.zip . -x "venv/*" -x "Dockerfile" -x ".pytest_cache/*"
+          cd ..
+          # Debug - list contents
+          unzip -l app.zip | head -20
+
       - name: Deploy to Azure Web App
+        id: deploy
         uses: azure/webapps-deploy@v2
         with:
           app-name: kyber-vpn-backend
           publish-profile: ${{ secrets.AZURE_WEBAPP_PUBLISH_PROFILE }}
-          package: kyber-vpn-backend    # ← just point at the folder
+          package: app.zip
+          startup-command: 'gunicorn app.main:app --config gunicorn.conf.py'
           slot-name: production
 
       - name: Verify URL
