@@ -1,4 +1,4 @@
-name: Build and Deploy Python App to Azure Web App
+name: Build & Deploy to Azure Web App
 
 on:
   push:
@@ -9,8 +9,9 @@ on:
   workflow_dispatch:
 
 jobs:
-  build:
+  build-and-deploy:
     runs-on: ubuntu-latest
+
     steps:
       - name: Checkout repository
         uses: actions/checkout@v3
@@ -19,7 +20,7 @@ jobs:
         uses: actions/setup-python@v4
         with:
           python-version: '3.9'
-          cache: 'pip'
+          cache: pip
 
       - name: Install dependencies
         working-directory: kyber-vpn-backend
@@ -31,33 +32,27 @@ jobs:
         working-directory: kyber-vpn-backend
         run: |
           pip install pytest
-          pytest tests/ --doctest-modules --junitxml=../junit/test-results.xml
+          pytest tests/ --junitxml=../junit/test-results.xml
         continue-on-error: true
 
-      - name: Upload backend as artifact
-        uses: actions/upload-artifact@v4   # ← migrado a v4
+      - name: Enable SCM build on Linux (SCM_DO_BUILD_DURING_DEPLOYMENT)
+        uses: azure/CLI@v1
         with:
-          name: python-backend
-          path: kyber-vpn-backend/
-
-  deploy:
-    needs: build
-    runs-on: ubuntu-latest
-    steps:
-      - name: Download Python backend artifact
-        uses: actions/download-artifact@v4  # ← migrado a v4
-        with:
-          name: python-backend
-          path: backend/
+          azcliversion: latest
+          inlineScript: |
+            az webapp config appsettings set \
+              --resource-group YOUR_RESOURCE_GROUP \
+              --name kyber-vpn-backend \
+              --settings WEBSITE_WEBDEPLOY_USE_SCM=true
 
       - name: Deploy to Azure Web App
-        id: deploy-to-webapp
+        id: deploy
         uses: azure/webapps-deploy@v2
         with:
-          app-name: 'kyber-vpn-backend'
+          app-name: kyber-vpn-backend
           publish-profile: ${{ secrets.AZURE_WEBAPP_PUBLISH_PROFILE }}
-          package: 'backend/'
+          package: kyber-vpn-backend       # ← Apunta directo al folder real
+          slot-name: production
 
-      - name: Verify deployment
-        run: |
-          echo "Deployed to ${{ steps.deploy-to-webapp.outputs.webapp-url }}"
+      - name: Verify deployment URL
+        run: echo "✅ Deployed to ${{ steps.deploy.outputs.webapp-url }}"
