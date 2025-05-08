@@ -1,4 +1,4 @@
-name: Build & Deploy to Azure Web App
+name: Build & Zip-Deploy to Azure Web App
 
 on:
   push:
@@ -10,9 +10,10 @@ jobs:
     runs-on: ubuntu-latest
 
     steps:
-      - uses: actions/checkout@v3
+      - name: Checkout repository
+        uses: actions/checkout@v3
 
-      - name: Set up Python
+      - name: Set up Python 3.9
         uses: actions/setup-python@v4
         with:
           python-version: '3.9'
@@ -24,18 +25,27 @@ jobs:
           python -m pip install --upgrade pip
           pip install -r requirements.txt
           pip install pytest
-          pytest tests/ --doctest-modules
+          pytest tests/ --doctest-modules --junitxml=../junit/test-results.xml
         continue-on-error: true
 
       - name: Package app for Zip Deploy
         run: |
           cd kyber-vpn-backend
-          zip -r ../app.zip .    # Empaqueta solo los contenidos internos
+          zip -r ../app.zip .      # Empaqueta sólo los archivos y carpetas dentro
+          cd ..
+
+      - name: Debug: list ZIP contents
+        run: |
+          unzip -l app.zip         # Verifica que en la raíz estén requirements.txt, app/, startup.sh, etc.
 
       - name: Deploy to Azure Web App
+        id: deploy
         uses: azure/webapps-deploy@v2
         with:
           app-name: kyber-vpn-backend
           publish-profile: ${{ secrets.AZURE_WEBAPP_PUBLISH_PROFILE }}
-          package: app.zip       # ← Paquete correcto sin carpeta raíz
+          package: app.zip         # ← El ZIP con la estructura correcta
           slot-name: production
+
+      - name: Verify deployment URL
+        run: echo "✅ Deployed to ${{ steps.deploy.outputs.webapp-url }}"
