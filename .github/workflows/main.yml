@@ -8,7 +8,6 @@ on:
 jobs:
   build-and-deploy:
     runs-on: ubuntu-latest
-
     steps:
       - name: Checkout repository
         uses: actions/checkout@v3
@@ -31,11 +30,13 @@ jobs:
       - name: Package app for Zip Deploy
         run: |
           cd kyber-vpn-backend
-          zip -r ../app.zip .
+          # Empaquetar todo menos el virtualenv
+          zip -r ../app.zip . -x "venv/*"
           cd ..
 
-      - name: list ZIP contents
-        run: unzip -l app.zip
+      - name: "Debug: list ZIP contents"
+        run: |
+          unzip -l app.zip
 
       - name: Deploy to Azure Web App
         id: deploy
