@@ -4,43 +4,45 @@ on:
   push:
     branches: [ main ]
     paths:
-      - '**'  # Trigger on any file change
-  workflow_dispatch:  # Allow manual triggering
+      - '**'  # Se dispara con cualquier cambio en el repo
+  workflow_dispatch:  # Permite disparo manual
 
 jobs:
   build-and-deploy:
     runs-on: ubuntu-latest
-    
+
     steps:
       - name: Checkout repository
         uses: actions/checkout@v3
-      
+
       - name: Set up Python
         uses: actions/setup-python@v4
         with:
           python-version: '3.9'
           cache: 'pip'
-      
+
       - name: Install dependencies
+        working-directory: kyber-vpn-backend
         run: |
           python -m pip install --upgrade pip
           pip install -r requirements.txt
-      
+
       - name: Run tests
+        working-directory: kyber-vpn-backend
         run: |
           pip install pytest
-          pytest tests/ --doctest-modules --junitxml=junit/test-results.xml
-        continue-on-error: true  # Optional: continue even if tests fail
-      
+          pytest tests/ --doctest-modules --junitxml=../junit/test-results.xml
+        continue-on-error: true  # Opcional: continúa aunque fallen tests
+
       - name: Deploy to Azure Web App
         id: deploy-to-webapp
         uses: azure/webapps-deploy@v2
         with:
           app-name: 'kyber-vpn-backend'
           publish-profile: ${{ secrets.AZURE_WEBAPP_PUBLISH_PROFILE }}
-          package: '.'
-          
+          package: 'kyber-vpn-backend'      # ← Apunta al subdirectorio
+
       - name: Verify deployment
         run: |
           echo "Deployed to ${{ steps.deploy-to-webapp.outputs.webapp-url }}"
-          # Add additional verification steps if needed
+          # Aquí podrías añadir peticiones HTTP para verificar salud, etc.
