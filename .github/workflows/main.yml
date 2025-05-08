@@ -28,6 +28,12 @@ jobs:
           pytest tests/ --doctest-modules --junitxml=../junit/test-results.xml
         continue-on-error: true
 
+      - name: Create app.py wrapper
+        working-directory: kyber-vpn-backend
+        run: |
+          echo 'from app.main import app' > app.py
+          echo '# La app real está en app/main.py' >> app.py
+
       - name: Package app for Zip Deploy
         run: |
           cd kyber-vpn-backend
