@@ -8,6 +8,7 @@ on:
 jobs:
   build-and-deploy:
     runs-on: ubuntu-latest
+
     steps:
       - name: Checkout repository
         uses: actions/checkout@v3
@@ -27,7 +28,7 @@ jobs:
           pytest tests/ --doctest-modules --junitxml=../junit/test-results.xml
         continue-on-error: true
 
-        - name: Package app for Zip Deploy
+      - name: Package app for Zip Deploy
         run: |
           cd kyber-vpn-backend
           zip -r ../app.zip . \
