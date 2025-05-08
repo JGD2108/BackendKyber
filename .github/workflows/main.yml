@@ -35,7 +35,7 @@ jobs:
         continue-on-error: true
 
       - name: Upload backend as artifact
-        uses: actions/upload-artifact@v3
+        uses: actions/upload-artifact@v4   # ← migrado a v4
         with:
           name: python-backend
           path: kyber-vpn-backend/
@@ -45,7 +45,7 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - name: Download Python backend artifact
-        uses: actions/download-artifact@v3
+        uses: actions/download-artifact@v4  # ← migrado a v4
         with:
           name: python-backend
           path: backend/
@@ -56,8 +56,8 @@ jobs:
         with:
           app-name: 'kyber-vpn-backend'
           publish-profile: ${{ secrets.AZURE_WEBAPP_PUBLISH_PROFILE }}
-          package: 'backend/'    # ← Aquí señalamos el subdirectorio extraído
-          
+          package: 'backend/'
+
       - name: Verify deployment
         run: |
           echo "Deployed to ${{ steps.deploy-to-webapp.outputs.webapp-url }}"
