@@ -27,16 +27,17 @@ jobs:
           pytest tests/ --doctest-modules --junitxml=../junit/test-results.xml
         continue-on-error: true
 
-      - name: Package app for Zip Deploy
+        - name: Package app for Zip Deploy
         run: |
           cd kyber-vpn-backend
-          # Empaquetar todo menos el virtualenv
-          zip -r ../app.zip . -x "venv/*"
+          zip -r ../app.zip . \
+            -x "venv/*" \
+            -x "Dockerfile" \
+            -x ".pytest_cache/*"
           cd ..
 
       - name: "Debug: list ZIP contents"
-        run: |
-          unzip -l app.zip
+        run: unzip -l app.zip
 
       - name: Deploy to Azure Web App
         id: deploy
