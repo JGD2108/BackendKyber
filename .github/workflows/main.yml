@@ -76,12 +76,17 @@ jobs:
           # List contents to verify
           unzip -l app.zip | head -20
 
+      - name: Azure Login
+        uses: azure/login@v1
+        with:
+          creds: ${{ secrets.AZURE_CREDENTIALS }}  # JSON object with service principal details
+
       - name: Configure App Service settings
-        uses: azure/cli@1.0.7
+        uses: azure/cli@v1
         with:
           inlineScript: |
             az webapp config appsettings set --name kyber-vpn-backend \
-            --resource-group $(az webapp show --name kyber-vpn-backend --query resourceGroup --output tsv) \
+            --resource-group kyber-vpn-rg \
             --settings \
             WEBSITE_WEBDEPLOY_USE_SCM=false \
             SCM_DO_BUILD_DURING_DEPLOYMENT=true \
