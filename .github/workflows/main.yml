@@ -1,8 +1,9 @@
-name: Deploy Python to Azure Web App
+name: Deploy Python to Azure Web App   # Mapeo raíz, ¡no lista!
 
 on:
   push:
-    branches: [ main ]
+    branches:
+      - main
   workflow_dispatch:
 
 jobs:
@@ -19,7 +20,7 @@ jobs:
           python-version: '3.9'
           cache: pip
 
-      - name: Install dependencies & run tests
+      - name: Install deps & run tests
         working-directory: kyber-vpn-backend
         run: |
           pip install --upgrade pip
@@ -35,8 +36,6 @@ jobs:
           publish-profile: ${{ secrets.AZURE_WEBAPP_PUBLISH_PROFILE }}
           package:         kyber-vpn-backend
           slot-name:       production
-          # ← Aquí le indicamos a Azure cómo lanzar tu app:
-          startup-command: gunicorn --config gunicorn.conf.py app:app
 
       - name: Verify URL
         run: echo "✅ Deployed to http://kyber-vpn-backend.azurewebsites.net"
