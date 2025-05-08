@@ -20,26 +20,26 @@ jobs:
           cache: pip
 
       - name: Install dependencies & run tests
+        working-directory: kyber-vpn-backend
         run: |
           pip install --upgrade pip
           pip install -r requirements.txt
           pip install pytest
-          pytest kyber-vpn-backend/tests/ --junitxml=junit/test-results.xml
+          pytest tests/ --junitxml=../junit/test-results.xml
         continue-on-error: true
 
-      - name: Prepare package folder for Oryx
+      - name: Prepare for deployment
         run: |
-          # Copiamos al folder que vamos a enviar:
-          cp requirements.txt kyber-vpn-backend/
-          cp app.py            kyber-vpn-backend/
+          # Copiamos requirements.txt al root para que Oryx lo detecte junto a app.py
+          cp kyber-vpn-backend/requirements.txt .
 
       - name: Deploy to Azure Web App
         uses: azure/webapps-deploy@v2
         with:
-          app-name:          kyber-vpn-backend
-          publish-profile:   ${{ secrets.AZURE_WEBAPP_PUBLISH_PROFILE }}
-          package:           kyber-vpn-backend   # <-- aquí señalamos el folder ya preparado
-          slot-name:         production
+          app-name:        kyber-vpn-backend
+          publish-profile: ${{ secrets.AZURE_WEBAPP_PUBLISH_PROFILE }}
+          package:         .              # Apunta a la raíz, donde están app.py + requirements.txt
+          slot-name:       production
 
       - name: Verify URL
         run: echo "✅ Deployed to http://kyber-vpn-backend.azurewebsites.net"
