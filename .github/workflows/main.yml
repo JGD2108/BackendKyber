@@ -1,15 +1,13 @@
-name: Deploy Python to Azure Web App   # Mapeo raíz, ¡no lista!
+name: Deploy Python to Azure Web App
 
 on:
   push:
-    branches:
-      - main
+    branches: [ main ]
   workflow_dispatch:
 
 jobs:
   deploy:
     runs-on: ubuntu-latest
-
     steps:
       - name: Checkout code
         uses: actions/checkout@v3
@@ -29,13 +27,24 @@ jobs:
           pytest tests/ --junitxml=../junit/test-results.xml
         continue-on-error: true
 
+      - name: Package app for Zip Deploy
+        run: |
+          cd kyber-vpn-backend
+          # Create zip file of application (excluding unnecessary files)
+          zip -r ../app.zip . -x "venv/*" -x ".pytest_cache/*"
+          cd ..
+          # List contents to verify
+          unzip -l app.zip | head -20
+
       - name: Deploy to Azure Web App
+        id: deploy
         uses: azure/webapps-deploy@v2
         with:
-          app-name:        kyber-vpn-backend
+          app-name: kyber-vpn-backend
           publish-profile: ${{ secrets.AZURE_WEBAPP_PUBLISH_PROFILE }}
-          package:         kyber-vpn-backend
-          slot-name:       production
+          package: app.zip
+          startup-command: 'gunicorn app.main:app --bind=0.0.0.0:8000 --config gunicorn.conf.py'
+          slot-name: production
 
       - name: Verify URL
         run: echo "✅ Deployed to http://kyber-vpn-backend.azurewebsites.net"
