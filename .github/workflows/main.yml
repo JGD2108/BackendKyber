@@ -28,17 +28,12 @@ jobs:
           pytest tests/ --junitxml=../junit/test-results.xml
         continue-on-error: true
 
-      - name: Prepare for deployment
-        run: |
-          # Copiamos requirements.txt al root para que Oryx lo detecte junto a app.py
-          cp kyber-vpn-backend/requirements.txt .
-
       - name: Deploy to Azure Web App
         uses: azure/webapps-deploy@v2
         with:
           app-name:        kyber-vpn-backend
           publish-profile: ${{ secrets.AZURE_WEBAPP_PUBLISH_PROFILE }}
-          package:         .              # Apunta a la raíz, donde están app.py + requirements.txt
+          package:         kyber-vpn-backend   # ◀ apuntas a la carpeta que ya contiene app.py + requirements.txt
           slot-name:       production
 
       - name: Verify URL
