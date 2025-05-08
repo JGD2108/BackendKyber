@@ -27,15 +27,21 @@ jobs:
           pytest tests/ --junitxml=../junit/test-results.xml
         continue-on-error: true
 
-      - name: Package app for Zip Deploy
+      - name: Package app for Azure App Service
         run: |
           cd kyber-vpn-backend
           
-          # Create startup files for Azure
+          # Create Python detection signals for Oryx
           echo "# Root-level entry point for Azure App Service" > app.py
           echo "from app.main import app" >> app.py
           
-          # Create a web.config file to handle startup in Azure
+          # Create runtime.txt for Python version
+          echo "python-3.9" > runtime.txt
+          
+          # Create a .deployment file to guide Azure
+          echo -e "[config]\nSCM_DO_BUILD_DURING_DEPLOYMENT=true" > .deployment
+          
+          # Create web.config for Windows App Service
           cat > web.config << EOL
           <?xml version="1.0" encoding="utf-8"?>
           <configuration>
@@ -43,8 +49,8 @@ jobs:
               <handlers>
                 <add name="PythonHandler" path="*" verb="*" modules="httpPlatformHandler" resourceType="Unspecified"/>
               </handlers>
-              <httpPlatform processPath="%home%\site\wwwroot\env\Scripts\python.exe"
-                          arguments="%home%\site\wwwroot\env\Scripts\gunicorn.exe app.main:app --bind=0.0.0.0:%HTTP_PLATFORM_PORT% --config gunicorn.conf.py"
+              <httpPlatform processPath="%home%\site\wwwroot\antenv\Scripts\python.exe"
+                          arguments="%home%\site\wwwroot\antenv\Scripts\gunicorn.exe app.main:app --bind=0.0.0.0:%HTTP_PLATFORM_PORT% --config gunicorn.conf.py"
                           stdoutLogEnabled="true"
                           stdoutLogFile="%home%\LogFiles\stdout"
                           startupTimeLimit="120">
@@ -55,6 +61,23 @@ jobs:
             </system.webServer>
           </configuration>
           EOL
+          
+          # Create Linux startup bash script
+          cat > startup.sh << EOL
+          #!/bin/bash
+          export PYTHONPATH=\$PYTHONPATH:/home/site/wwwroot
+          cd /home/site/wwwroot
+          
+          # Use the SCM-created virtual environment
+          source /home/site/wwwroot/antenv/bin/activate
+          
+          # Start Gunicorn
+          gunicorn app.main:app --bind=0.0.0.0:8000 --timeout 600 --config gunicorn.conf.py
+          EOL
+          chmod +x startup.sh
+          
+          # Add requirements.txt to root (even though already there)
+          cp requirements.txt requirements.txt
           
           # Create zip file of application (excluding unnecessary files)
           zip -r ../app.zip . -x "venv/*" -x ".pytest_cache/*"
@@ -70,7 +93,6 @@ jobs:
           app-name: kyber-vpn-backend
           publish-profile: ${{ secrets.AZURE_WEBAPP_PUBLISH_PROFILE }}
           package: app.zip
-          # No startup-command here, using web.config instead
           slot-name: production
 
       - name: Verify URL
