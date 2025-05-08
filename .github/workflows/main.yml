@@ -76,9 +76,6 @@ jobs:
           EOL
           chmod +x startup.sh
           
-          # Add requirements.txt to root (even though already there)
-          cp requirements.txt requirements.txt
-          
           # Create zip file of application (excluding unnecessary files)
           zip -r ../app.zip . -x "venv/*" -x ".pytest_cache/*"
           cd ..
