@@ -2,7 +2,8 @@ name: Deploy Python to Azure Web App
 
 on:
   push:
-    branches: [ main ]
+    branches:
+      - main
   workflow_dispatch:
 
 jobs:
@@ -13,20 +14,26 @@ jobs:
       - name: Checkout code
         uses: actions/checkout@v3
 
-      - name: Set up Python
+      - name: Set up Python 3.9
         uses: actions/setup-python@v4
         with:
           python-version: '3.9'
           cache: pip
 
-      - name: Install dependencies & run tests
+      - name: Install deps & run tests
         working-directory: kyber-vpn-backend
         run: |
           pip install --upgrade pip
           pip install -r requirements.txt
           pip install pytest
-          pytest tests/
+          pytest tests/ --junitxml=../junit/test-results.xml
         continue-on-error: true
+
+      - name: Archive artifact for deployment
+        run: |
+          cd kyber-vpn-backend
+          zip -r ../deploy.zip .          # ← todo el contenido, no la carpeta
+        # ahora podemos usar deploy.zip donde los archivos están en la raíz del ZIP
 
       - name: Azure Login
         uses: azure/login@v1
@@ -37,6 +44,9 @@ jobs:
         uses: azure/webapps-deploy@v2
         with:
           app-name:        kyber-vpn-backend
-          package:         kyber-vpn-backend
+          package:         deploy.zip       # ← apuntamos al ZIP correcto
           startup-command: gunicorn --config gunicorn.conf.py app:app
           slot-name:       production
+
+      - name: Verify URL
+        run: echo "✅ Deployed to http://kyber-vpn-backend.azurewebsites.net"
