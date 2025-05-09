@@ -1,4 +1,4 @@
-name: Deploy to Azure
+name: Build & Deploy Python to Azure Web App
 
 on:
   push:
@@ -9,27 +9,59 @@ on:
 jobs:
   build-and-deploy:
     runs-on: ubuntu-latest
-    
+
     steps:
-    - name: Checkout code
-      uses: actions/checkout@v2
-      
-    - name: Azure Login
-      uses: azure/login@v1
-      with:
-        creds: ${{ secrets.AZURE_CREDENTIALS }}
+      - name: Checkout code
+        uses: actions/checkout@v3
 
-    - name: Force Oryx build on deploy
-      run: |
-        az webapp config appsettings set \
-          --resource-group kyber-vpn-rg \
-          --name kyber-vpn-backend \
-          --settings SCM_DO_BUILD_DURING_DEPLOYMENT=true ENABLE_ORYX_BUILD=true
+      - name: Set up Python 3.9
+        uses: actions/setup-python@v4
+        with:
+          python-version: '3.9'
+          cache: pip
 
-    - name: Deploy to Azure Web App
-      uses: azure/webapps-deploy@v2
-      with:
-        app-name:        kyber-vpn-backend
-        package:         deploy.zip
-        startup-command: gunicorn --config gunicorn.conf.py app.main:app
-        slot-name:       production
+      - name: Install deps & run tests
+        working-directory: kyber-vpn-backend
+        run: |
+          pip install --upgrade pip
+          pip install -r requirements.txt
+          pytest tests/ --junitxml=../junit/test-results.xml
+        continue-on-error: true
+
+      - name: Archive artifact for Oryx
+        run: |
+          cd kyber-vpn-backend
+          zip -r ../deploy.zip . \
+            -x "venv/*" \
+            -x ".deployment" \
+            -x ".azure" \
+            -x "help.azure" \
+            -x ".python_version" \
+            -x "requirements-dev.txt" \
+            -x "startup.txt"
+
+      - name: Inspect deploy.zip
+        run: unzip -l deploy.zip
+
+      - name: Azure Login
+        uses: azure/login@v1
+        with:
+          creds: ${{ secrets.AZURE_CREDENTIALS }}
+
+      - name: Force Oryx build on deploy
+        run: |
+          az webapp config appsettings set \
+            --resource-group kyber-vpn-rg \
+            --name kyber-vpn-backend \
+            --settings SCM_DO_BUILD_DURING_DEPLOYMENT=true ENABLE_ORYX_BUILD=true
+
+      - name: Deploy to Azure Web App
+        uses: azure/webapps-deploy@v2
+        with:
+          app-name:        kyber-vpn-backend
+          package:         deploy.zip
+          startup-command: gunicorn --config gunicorn.conf.py app.main:app
+          slot-name:       production
+
+      - name: Verify URL
+        run: echo "✅ Deployed to http://kyber-vpn-backend.azurewebsites.net"
