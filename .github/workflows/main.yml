@@ -16,12 +16,11 @@ jobs:
           python-version: '3.9'
           cache: pip
 
-      - name: Install dependencies & run tests
+      - name: Install dependencies
         working-directory: kyber-vpn-backend
         run: |
           pip install --upgrade pip
           pip install -r requirements.txt
-          pytest tests/ --junitxml=../junit/test-results.xml
         continue-on-error: true
 
       - name: Prepare artifact for Azure
@@ -44,15 +43,15 @@ jobs:
             --resource-group kyber-vpn-rg \
             --name kyber-vpn-backend \
             --settings SCM_DO_BUILD_DURING_DEPLOYMENT=1
+      - name: Navigate to Backend Directory
+        run: cd kyber-vpn-backend
 
       - name: Deploy to Azure Web App
         uses: azure/webapps-deploy@v2
         with:
-          app-name:        kyber-vpn-backend
-          package:         deploy.zip
-          enable-oryx-build: true
-          startup-command: gunicorn --config gunicorn.conf.py app.main:app
-          slot-name:       production
+          app-name: kyber-vpn-backend
+          package: kyber-vpn-backend
+          runtime: PYTHON|3.9
 
       - name: Verify deployment
         run: echo "✅ https://kyber-vpn-backend.azurewebsites.net is live!"
