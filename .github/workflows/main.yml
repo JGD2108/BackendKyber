@@ -26,7 +26,14 @@ jobs:
       - name: Archive artifact for Oryx
         run: |
           cd kyber-vpn-backend
-          zip -r ../deploy.zip . -x "venv/*"
+          zip -r ../deploy.zip . \
+            -x "venv/*" \
+            -x ".deployment" \
+            -x ".azure" \
+            -x "help.azure" \
+            -x ".python_version" \
+            -x "requirements-dev.txt" \
+            -x "startup.txt"
 
       - name: Inspect deploy.zip
         run: unzip -l deploy.zip
