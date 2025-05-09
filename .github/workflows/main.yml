@@ -20,7 +20,7 @@ jobs:
           python-version: '3.9'
           cache: pip
 
-      - name: Install deps & run tests
+      - name: Install dependencies & run tests
         working-directory: kyber-vpn-backend
         run: |
           pip install --upgrade pip
@@ -29,11 +29,30 @@ jobs:
           pytest tests/ --junitxml=../junit/test-results.xml
         continue-on-error: true
 
+      - name: Create runtime.txt for Azure
+        working-directory: kyber-vpn-backend
+        run: |
+          echo "python-3.9" > runtime.txt
+
+      - name: Create web.config for Azure
+        working-directory: kyber-vpn-backend
+        run: |
+          cat > web.config << EOL
+          <?xml version="1.0" encoding="utf-8"?>
+          <configuration>
+            <system.webServer>
+              <handlers>
+                <add name="PythonHandler" path="*" verb="*" modules="httpPlatformHandler" resourceType="Unspecified"/>
+              </handlers>
+              <httpPlatform processPath="%HOME%\site\wwwroot\antenv\Scripts\python.exe" arguments="%HOME%\site\wwwroot\app.py" requestTimeout="00:04:00" startupTimeLimit="120" startupRetryCount="3" stdoutLogEnabled="true" stdoutLogFile="%HOME%\LogFiles\pyStdout.log"/>
+            </system.webServer>
+          </configuration>
+          EOL
+
       - name: Archive artifact for deployment
         run: |
           cd kyber-vpn-backend
-          zip -r ../deploy.zip .          # ← todo el contenido, no la carpeta
-        # ahora podemos usar deploy.zip donde los archivos están en la raíz del ZIP
+          zip -r ../deploy.zip .
 
       - name: Azure Login
         uses: azure/login@v1
@@ -43,10 +62,9 @@ jobs:
       - name: Deploy to Azure Web App
         uses: azure/webapps-deploy@v2
         with:
-          app-name:        kyber-vpn-backend
-          package:         deploy.zip       # ← apuntamos al ZIP correcto
+          app-name: kyber-vpn-backend
+          package: deploy.zip
           startup-command: gunicorn --config gunicorn.conf.py app:app
-          slot-name:       production
 
       - name: Verify URL
-        run: echo "✅ Deployed to http://kyber-vpn-backend.azurewebsites.net"
+        run: echo "✅ Deployed to https://kyber-vpn-backend.azurewebsites.net"
