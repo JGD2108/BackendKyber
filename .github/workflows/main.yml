@@ -24,7 +24,7 @@ jobs:
     - name: Install Dependencies
       run: |
         python -m pip install --upgrade pip
-        pip install -r requirements.txt
+        pip install -r kyber-vpn-backend/requirements.txt
 
     - name: Archive Application
       run: |
@@ -33,6 +33,6 @@ jobs:
     - name: Deploy to Azure Web App
       uses: Azure/webapps-deploy@v2
       with:
-        app-name: <your-app-service-name>
-        slot-name: <your-slot-name>
+        app-name: kyber-vpn-backend
+        slot-name: production
         package: app.zip
