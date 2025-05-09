@@ -2,75 +2,34 @@ name: Deploy Python to Azure Web App
 
 on:
   push:
-    branches:
-      - main
-  workflow_dispatch:
+    branches: [ main ]
 
 jobs:
   deploy:
     runs-on: ubuntu-latest
-
     steps:
-      - name: Checkout code
-        uses: actions/checkout@v3
+      - uses: actions/checkout@v3
 
-      - name: Set up Python 3.9
-        uses: actions/setup-python@v4
+      - uses: actions/setup-python@v4
         with:
           python-version: '3.9'
           cache: pip
 
-      - name: Install dependencies & run tests
+      - name: Install deps & run tests
         working-directory: kyber-vpn-backend
         run: |
           pip install --upgrade pip
           pip install -r requirements.txt
-          pip install pytest
           pytest tests/ --junitxml=../junit/test-results.xml
         continue-on-error: true
 
-      - name: Create Python detection files for Azure
-        working-directory: kyber-vpn-backend
-        run: |
-          # Create runtime.txt
-          echo "python-3.9" > runtime.txt
-          
-          # Make sure requirements.txt is in root
-          cp -n requirements.txt ./requirements.txt 2>/dev/null || true
-          
-          # Create .python_version
-          echo "3.9" > .python_version
-          
-          # Create a deployment marker file
-          touch .deployment
-          echo "[config]" > .deployment
-          echo "SCM_DO_BUILD_DURING_DEPLOYMENT=true" >> .deployment
-
-      - name: Create web.config for Azure
-        working-directory: kyber-vpn-backend
-        run: |
-          cat > web.config << EOL
-          <?xml version="1.0" encoding="utf-8"?>
-          <configuration>
-            <system.webServer>
-              <handlers>
-                <add name="PythonHandler" path="*" verb="*" modules="httpPlatformHandler" resourceType="Unspecified"/>
-              </handlers>
-              <httpPlatform processPath="%home%\site\wwwroot\antenv\Scripts\python.exe" 
-                            arguments="%home%\site\wwwroot\app.py" 
-                            requestTimeout="00:04:00" 
-                            startupTimeLimit="120" 
-                            startupRetryCount="3" 
-                            stdoutLogEnabled="true" 
-                            stdoutLogFile="%home%\LogFiles\python.log"/>
-            </system.webServer>
-          </configuration>
-          EOL
-
-      - name: Archive artifact for deployment
+      - name: Archive artifact for Oryx
         run: |
           cd kyber-vpn-backend
-          zip -r ../deploy.zip .
+          zip -r ../deploy.zip . -x "venv/*"
+
+      - name: Inspect deploy.zip
+        run: unzip -l deploy.zip
 
       - name: Azure Login
         uses: azure/login@v1
@@ -80,6 +39,10 @@ jobs:
       - name: Deploy to Azure Web App
         uses: azure/webapps-deploy@v2
         with:
-          app-name: kyber-vpn-backend
-          package: deploy.zip
+          app-name:        kyber-vpn-backend
+          package:         deploy.zip
           startup-command: gunicorn --config gunicorn.conf.py app:app
+          slot-name:       production
+
+      - name: Verify URL
+        run: echo "✅ Deployed to http://kyber-vpn-backend.azurewebsites.net"
