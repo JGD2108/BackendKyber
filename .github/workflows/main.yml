@@ -29,10 +29,22 @@ jobs:
           pytest tests/ --junitxml=../junit/test-results.xml
         continue-on-error: true
 
-      - name: Create runtime.txt for Azure
+      - name: Create Python detection files for Azure
         working-directory: kyber-vpn-backend
         run: |
+          # Create runtime.txt
           echo "python-3.9" > runtime.txt
+          
+          # Make sure requirements.txt is in root
+          cp -n requirements.txt ./requirements.txt 2>/dev/null || true
+          
+          # Create .python_version
+          echo "3.9" > .python_version
+          
+          # Create a deployment marker file
+          touch .deployment
+          echo "[config]" > .deployment
+          echo "SCM_DO_BUILD_DURING_DEPLOYMENT=true" >> .deployment
 
       - name: Create web.config for Azure
         working-directory: kyber-vpn-backend
@@ -71,6 +83,3 @@ jobs:
           app-name: kyber-vpn-backend
           package: deploy.zip
           startup-command: gunicorn --config gunicorn.conf.py app:app
-
-      - name: Verify URL
-        run: echo "✅ Deployed to https://kyber-vpn-backend.azurewebsites.net"
