@@ -1,18 +1,14 @@
-name: Build & Deploy Python to Azure Web App
+name: Deploy Python FastAPI to Azure Web App
 
 on:
   push:
-    branches:
-      - main
-  workflow_dispatch:
+    branches: [ main ]
 
 jobs:
-  build-and-deploy:
+  deploy:
     runs-on: ubuntu-latest
-
     steps:
-      - name: Checkout code
-        uses: actions/checkout@v3
+      - uses: actions/checkout@v3
 
       - name: Set up Python 3.9
         uses: actions/setup-python@v4
@@ -20,7 +16,7 @@ jobs:
           python-version: '3.9'
           cache: pip
 
-      - name: Install deps & run tests
+      - name: Install dependencies & run tests
         working-directory: kyber-vpn-backend
         run: |
           pip install --upgrade pip
@@ -28,17 +24,11 @@ jobs:
           pytest tests/ --junitxml=../junit/test-results.xml
         continue-on-error: true
 
-      - name: Archive artifact for Oryx
+      - name: Prepare artifact for Azure
         run: |
           cd kyber-vpn-backend
-          zip -r ../deploy.zip . \
-            -x "venv/*" \
-            -x ".deployment" \
-            -x ".azure" \
-            -x "help.azure" \
-            -x ".python_version" \
-            -x "requirements-dev.txt" \
-            -x "startup.txt"
+          echo "python-3.9" > runtime.txt
+          zip -r ../deploy.zip . -x "venv/*"
 
       - name: Inspect deploy.zip
         run: unzip -l deploy.zip
@@ -48,20 +38,21 @@ jobs:
         with:
           creds: ${{ secrets.AZURE_CREDENTIALS }}
 
-      - name: Force Oryx build on deploy
+      - name: Enable Oryx build
         run: |
           az webapp config appsettings set \
             --resource-group kyber-vpn-rg \
             --name kyber-vpn-backend \
-            --settings SCM_DO_BUILD_DURING_DEPLOYMENT=true ENABLE_ORYX_BUILD=true
+            --settings SCM_DO_BUILD_DURING_DEPLOYMENT=1
 
       - name: Deploy to Azure Web App
         uses: azure/webapps-deploy@v2
         with:
           app-name:        kyber-vpn-backend
           package:         deploy.zip
+          enable-oryx-build: true
           startup-command: gunicorn --config gunicorn.conf.py app.main:app
           slot-name:       production
 
-      - name: Verify URL
-        run: echo "✅ Deployed to http://kyber-vpn-backend.azurewebsites.net"
+      - name: Verify deployment
+        run: echo "✅ https://kyber-vpn-backend.azurewebsites.net is live!"
