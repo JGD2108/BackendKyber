@@ -29,25 +29,32 @@ jobs:
           pytest tests/ --junitxml=../junit/test-results.xml
         continue-on-error: true
 
-      - name: Create runtime.txt for Azure
-        working-directory: kyber-vpn-backend
+      - name: Prepare for deployment
         run: |
-          echo "python-3.9" > runtime.txt
-
-      - name: Create web.config for Azure
-        working-directory: kyber-vpn-backend
-        run: |
-          cat > web.config << EOL
+          # Create runtime.txt for Azure
+          echo "python-3.9" > kyber-vpn-backend/runtime.txt
+          
+          # Create proper web.config
+          cat > kyber-vpn-backend/web.config << EOL
           <?xml version="1.0" encoding="utf-8"?>
           <configuration>
             <system.webServer>
               <handlers>
                 <add name="PythonHandler" path="*" verb="*" modules="httpPlatformHandler" resourceType="Unspecified"/>
               </handlers>
-              <httpPlatform processPath="%HOME%\site\wwwroot\antenv\Scripts\python.exe" arguments="%HOME%\site\wwwroot\app.py" requestTimeout="00:04:00" startupTimeLimit="120" startupRetryCount="3" stdoutLogEnabled="true" stdoutLogFile="%HOME%\LogFiles\pyStdout.log"/>
+              <httpPlatform processPath="%home%\site\wwwroot\env\Scripts\python.exe" 
+                            arguments="%home%\site\wwwroot\app\main.py" 
+                            requestTimeout="00:04:00" 
+                            startupTimeLimit="120" 
+                            startupRetryCount="3" 
+                            stdoutLogEnabled="true" 
+                            stdoutLogFile="%home%\LogFiles\python.log"/>
             </system.webServer>
           </configuration>
           EOL
+          
+          # Create startup command file
+          echo "gunicorn app.main:app --bind=0.0.0.0:8000 --timeout 600" > kyber-vpn-backend/startup.txt
 
       - name: Archive artifact for deployment
         run: |
@@ -64,7 +71,7 @@ jobs:
         with:
           app-name: kyber-vpn-backend
           package: deploy.zip
-          startup-command: gunicorn --config gunicorn.conf.py app:app
+          startup-command: "gunicorn app.main:app --bind=0.0.0.0:8000 --config gunicorn.conf.py"
 
       - name: Verify URL
         run: echo "✅ Deployed to https://kyber-vpn-backend.azurewebsites.net"
